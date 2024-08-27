@@ -87,8 +87,19 @@ To run the docker container:
 ```bash
 docker run -d -p 8080:8080 customer
 ```
-### PCF
 ### AWS ECS
+#### Prerequisites
+- AWS Account
+- AWS CLI installed
+- Docker with docker image as described in previous section
+- IAM Role with permissions to create ECS resources, clusters, services and tasks
+#### High Level Steps
+Assumes you have tested the docker image locally
+- Tag the Docker Image (to ease deployment process)
+- Authenticate with AWS ECR and push the docker image
+- Setup an AWS Cluster with an IAM role via the console
+- Define a task definition to add a container with memory, CPU, port settings, environment configuration, etc
+- Deploy the service on AWS ECS and monitor its progress
 
 ## Considerations
 Additional considerations regarding security, data integrity, testing and scaling
