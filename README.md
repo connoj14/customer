@@ -40,7 +40,7 @@ cd customer
 ### **Build the Application**
 This will run all tests and build the deployment artifact
 ```bash
-gradlew clean install
+gradlew clean build
 ```
 
 ### **Run the Application**
@@ -71,7 +71,6 @@ curl -X POST http://localhost:8080/api/customers \
 -H "Content-Type: application/json" \
 -d '{
   "firstName": "John",
-  "lastName": "Doe",
   "address": "123 Main St, Anytown, USA",
   "phoneNumber": "123-456-7890",
   "dateOfBirth": "1990-01-01",
@@ -95,15 +94,116 @@ docker run -d -p 8080:8080 customer
 Additional considerations regarding security, data integrity, testing and scaling
 
 ### Security and Authorization
-**Endpoint-Based Authorization**: Currently, all endpoints are open. Future enhancements will include role-based access control (RBAC) using Spring Security.
-**Data-Based Authorization**: Planned for future implementation, where users will have access to specific data based on their roles.
+Currently, all endpoints are open. Securing endpoints would be implemented using Spring Security that has comprehensive support
+for multiple authentication and authorization providers, protocols such as OIDC/OAuth2/SAML and RBAC/ABAC services.
+
+Below are code snippets to add some basic authentication requiring the logged-in user to have the role of *ADMIN* to create, update or delete a customer.
+
+Add the spring security dependency to the **build.gradle** file
+```bash
+implementation 'org.springframework.boot:spring-boot-starter-security'
+```
+Add a **SecurityConfig** component to enforce authentication with a **UserDetailsService** bean to add some test accounts with assigned roles
+```bash
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(authz -> authz
+                        .requestMatchers("/api/v1/**")
+                        .authenticated()
+                )
+                .httpBasic(withDefaults());
+
+        return http.build();
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
+
+        manager.createUser(
+                User.withUsername("user")
+                        .password(passwordEncoder().encode("password"))
+                        .roles("USER")
+                        .build()
+        );
+
+        manager.createUser(
+                User.withUsername("admin")
+                        .password(passwordEncoder().encode("adminpassword"))
+                        .roles("ADMIN")
+                        .build()
+        );
+
+        return manager;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+```
+Add a **PreAuthorize** annotation to the appropriate controller methods to check for the required role
+```bash
+    private static final String ROLE_ADMIN = "hasRole('ADMIN')";
+    
+    ...
+    
+    @PostMapping
+    @PreAuthorize(ROLE_ADMIN)
+    public Customer createCustomer(@RequestBody Customer customer) {
+        return customerService.createCustomer(customer);
+    }
+```
+Spring also provides support for more fine-grained checking on specific authorities or using **SPEL** to implement custom checking  
 
 ### Data Integrity
-**Transactional Management**: The service layer is annotated with @Transactional to ensure that all operations within a transaction are completed successfully before the transaction is committed.
-**Validation**: Data validation is performed at the DTO level using Java Bean Validation (JSR 380).
+Spring Data and JPA has in-built support for transaction management including annotations for more granular control of transactions.
+
+Java Bean Validation provides a comprehensive set of annotations to validate DTO field types, sizes, string patterns, etc.
+
+Refer to the *Customer** bean for examples on first name, last name and national security number
 
 ### Testing
 
+The current application includes unit and integration tests that ensure the spring context loads correctly and that the layers communicate correctly.
+But a more comprehensive set of testing would be required in a CI/CD environment.
+
+### Contract Tests
+Ensure that the interactions between different microservices adhere to agreed-upon contracts (e.g., API interfaces).
+ 
+### API Tests
+Validate that the APIs function end-to-end as expected including authorization checking.
+
+### Performance Tests
+Assess the performance characteristics of the applicationusing tools like JMeter to mitigate against performance degradation introduced by software updates.
+
+### Security Tests
+Identify security vulnerabilities within your microservice, such as SQL injection, XSS, or authentication issues 
+using tools such as SonarQube, Snyk, Blackduck, Checkmarx.
+
+### Canary Testing (Optional)
+Useful to have a dedicated canary microservice application to test major framework or software version changes before rolling out to entire suite of applications
+
+### Chaos Testing (Optional)
+Test the resilience of the microservice by intentionally introducing failures and ensuring the system can recover gracefully
+using tools like Chaos Monkey
+
+### Database Migration Tests
+Verify that database migrations (schema changes, data migrations) can be applied and rolled back without issues
+using a tool like Flyway
+
 ### Scaling
-**Horizontal Scaling**: The application can be scaled horizontally by increasing the number of replicas in Kubernetes or AWS ECS.
-**Database Scaling**: Consider using MySQL read replicas for scaling the database and Redis clustering for scaling the cache layer.
+Given the application is developed as a standalone stateless microservice component and can be deployed to any containerised environment, it can be scaled horizontally by increasing the number of replicas in Kubernetes or AWS ECS.
+
+Amazon RDS for PostgreSQL has built in support for performance, scaling and high availability as do Azure and Google Cloud.
+Horizontal scaling of databases can be achieved with read replicas (off-loading queries to replicas)
+
+Even though PostgreSQL soes not directly support sharding, it could be implemented in Spring. Another option is to migrate to a database like MongoDB or Redis that does support sharding.
+This would be relatively easy given the application uses Spring Data.

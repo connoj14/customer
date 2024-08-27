@@ -1,15 +1,21 @@
 package com.example.customer.api;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+
 import java.time.LocalDate;
 
 public class Customer {
 
     private Long id;
+    @NotBlank(message = "First Name cannot be blank")
     private String firstName;
+    @NotBlank(message = "Last Name cannot be blank")
     private String lastName;
     private String address;
     private String phoneNumber;
     private LocalDate dateOfBirth;
+    @Pattern(regexp = "^\\d{3}-\\d{2}-\\d{4}$", message = "National Security number must be in the format nnn-nn-nnnn")
     private String nationalSecurityNumber;
 
     public Long getId() {

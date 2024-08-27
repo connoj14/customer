@@ -1,6 +1,7 @@
 package com.example.customer.api;
 
 import com.example.customer.app.CustomerService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +12,7 @@ import java.util.List;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private static final String ROLE_ADMIN = "hasRole('ADMIN')";
 
     public CustomerController(CustomerService customerService) {
         this.customerService = customerService;
@@ -27,12 +29,12 @@ public class CustomerController {
     }
 
     @PostMapping
-    public Customer createCustomer(@RequestBody Customer customer) {
+    public Customer createCustomer(@Valid @RequestBody Customer customer) {
         return customerService.createCustomer(customer);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Customer> updateCustomer(@PathVariable Long id, @RequestBody Customer customerDetails) {
+    public ResponseEntity<Customer> updateCustomer(@Valid @PathVariable Long id, @RequestBody Customer customerDetails) {
         return ResponseEntity.ok(customerService.updateCustomer(id, customerDetails));
     }
 
